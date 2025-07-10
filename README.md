@@ -10,7 +10,7 @@ An advanced educational technology platform that transforms multimodal content i
 - **Bloom's Taxonomy Alignment**: Questions aligned with Remember, Understand, and Apply levels
 - **Interactive Learning Materials**: Engaging flashcards and progress tracking
 
-### 💬 **AI Chat Assistant** (New!)
+### 💬 **AI Chat Assistant** 
 - **Conversational Learning**: Interactive AI assistant inspired by Socrat.ai
 - **Context-Aware Responses**: AI understands your learning materials and progress
 - **Personalized Guidance**: Adaptive responses based on user preferences and performance
@@ -136,19 +136,6 @@ npm run dev
 - `POST /quiz-complete` - Submit quiz results
 - `GET /health` - Health check endpoint
 
-## 🎨 Design Principles
-
-### Inspired by Modern EdTech Platforms
-- **Socrat.ai**: Conversational learning approach
-- **Alice.tech**: Clean Scandinavian design and analytics
-- **GPTutor**: Personalized tutoring experience
-
-### Key Design Elements
-- **Card-based layouts** for organized content
-- **Gradient backgrounds** for visual appeal
-- **Interactive elements** with hover states
-- **Progress visualization** for engagement
-- **Consistent color system** for accessibility
 
 ## 🧠 AI Features
 
@@ -183,25 +170,6 @@ npm run dev
 - **Secure API Communication**: HTTPS and CORS protection
 - **Optional API Keys**: Mock data available without external APIs
 
-## 🚧 Future Enhancements
-
-- **Real-time Collaboration**: Multi-user learning sessions
-- **Advanced Analytics**: Detailed learning insights
-- **Content Sharing**: Export and share learning modules
-- **Mobile App**: Native iOS and Android applications
-- **LMS Integration**: Connect with existing learning platforms
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## 🙋‍♂️ Support
 
@@ -210,13 +178,4 @@ For questions, issues, or feedback:
 - Contact the development team
 - Check the documentation
 
-## 🎉 Acknowledgments
-
-- **OpenAI** for GPT-4o and Whisper technologies
-- **Hugging Face** for transformer models
-- **FastAPI** for the excellent web framework
-- **React Team** for the amazing frontend library
-
 ---
-
-**Built with ❤️ for enhanced learning experiences** 
