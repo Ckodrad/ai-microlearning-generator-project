@@ -12,6 +12,39 @@ function App() {
   const [dragActive, setDragActive] = useState({});
   const [currentFlashcard, setCurrentFlashcard] = useState(0);
   const [showFlashcardAnswer, setShowFlashcardAnswer] = useState(false);
+  
+  // Flashcard review handler with backend tracking
+  const handleFlashcardReview = async (correct) => {
+    if (!data?.flashcards || !progress?.session_id) return;
+    
+    try {
+      const form = new FormData();
+      form.append('session_id', progress.session_id);
+      form.append('card_id', `flashcard_${currentFlashcard}`);
+      form.append('correct', correct);
+      
+      const response = await fetch('http://localhost:8000/flashcard-review', {
+        method: 'POST',
+        body: form,
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        setProgress(result.progress);
+        loadAnalytics(); // Refresh analytics
+      }
+    } catch (error) {
+      console.error('Failed to track flashcard review:', error);
+    }
+    
+    // Move to next flashcard
+    if (currentFlashcard < data.flashcards.length - 1) {
+      setCurrentFlashcard(currentFlashcard + 1);
+    } else {
+      setCurrentFlashcard(0);
+    }
+    setShowFlashcardAnswer(false);
+  };
   const [progress, setProgress] = useState(null);
   const textPreview = useRef("");
   
@@ -61,34 +94,103 @@ function App() {
     }
   });
 
-  // Load preferences from localStorage on component mount
+  // Load preferences from localStorage and backend on component mount
   React.useEffect(() => {
-    const savedPreferences = localStorage.getItem('userPreferences');
-    if (savedPreferences) {
-      try {
-        setUserPreferences(JSON.parse(savedPreferences));
-      } catch (error) {
-        console.error('Failed to load preferences:', error);
+    const loadPreferences = async () => {
+      // First load from localStorage
+      const savedPreferences = localStorage.getItem('userPreferences');
+      if (savedPreferences) {
+        try {
+          setUserPreferences(JSON.parse(savedPreferences));
+        } catch (error) {
+          console.error('Failed to load local preferences:', error);
+        }
       }
-    }
-  }, []);
-
-  // Analytics for dashboard
-  const getAnalytics = () => {
-    if (!data) return { totalQuestions: 0, flashcards: 0, concepts: 0, progress: 0 };
-    
-    const totalQuestions = [data.question1, data.question2, data.question3].filter(Boolean).length;
-    const flashcardsCount = data.flashcards?.length || 0;
-    const conceptsCount = data.key_concepts?.length || 0;
-    const progressPercent = quizCompleted ? Math.round((quizScore / totalQuestions) * 100) : 0;
-    
-    return {
-      totalQuestions,
-      flashcards: flashcardsCount,
-      concepts: conceptsCount,
-      progress: progressPercent
+      
+      // If we have a session, try to load from backend
+      if (progress?.session_id) {
+        try {
+          const response = await fetch(`http://localhost:8000/preferences/${progress.session_id}`);
+          if (response.ok) {
+            const result = await response.json();
+            if (result.preferences) {
+              setUserPreferences(result.preferences);
+              // Also update localStorage with backend data
+              localStorage.setItem('userPreferences', JSON.stringify(result.preferences));
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load backend preferences:', error);
+        }
+      }
     };
+    
+    loadPreferences();
+  }, [progress?.session_id]);
+
+  // Enhanced analytics with backend integration
+  const [analytics, setAnalytics] = React.useState({
+    totalQuestions: 0,
+    flashcards: 0,
+    concepts: 0,
+    progress: 0,
+    totalStudyTime: 0,
+    learningStreak: 0,
+    averageScore: 0
+  });
+
+  const getAnalytics = () => {
+    // Return current analytics state (updated from backend or local calculation)
+    return analytics;
   };
+
+  const loadAnalytics = async () => {
+    try {
+      if (progress?.session_id) {
+        const response = await fetch(`http://localhost:8000/analytics/${progress.session_id}`);
+        if (response.ok) {
+          const result = await response.json();
+          if (result.analytics) {
+            setAnalytics({
+              totalQuestions: result.analytics.total_quizzes || 0,
+              flashcards: result.analytics.total_flashcards || 0,
+              concepts: result.analytics.learning_objectives_completed || 0,
+              progress: result.analytics.average_quiz_score || 0,
+              totalStudyTime: result.analytics.total_study_time || 0,
+              learningStreak: result.analytics.learning_streak || 0,
+              averageScore: result.analytics.average_quiz_score || 0
+            });
+            return;
+          }
+        }
+      }
+      
+      // Fallback to local calculation
+      if (data) {
+        const totalQuestions = [data.question1, data.question2, data.question3].filter(Boolean).length;
+        const flashcardsCount = data.flashcards?.length || 0;
+        const conceptsCount = data.key_concepts?.length || 0;
+        const progressPercent = quizCompleted ? Math.round((quizScore / totalQuestions) * 100) : 0;
+        
+        setAnalytics({
+          totalQuestions,
+          flashcards: flashcardsCount,
+          concepts: conceptsCount,
+          progress: progressPercent,
+          totalStudyTime: 0,
+          learningStreak: 0,
+          averageScore: progressPercent
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load analytics:', error);
+    }
+  };
+
+  // Load analytics when progress changes
+  React.useEffect(() => {
+    loadAnalytics();
+  }, [progress?.session_id, data, quizCompleted, quizScore]);
 
   // All existing handlers remain the same
   const handleDrag = (e, type) => {
@@ -200,6 +302,8 @@ function App() {
       const correctOption = data[`correct_option${num}`] || 0;
       const isCorrect = userAnswer === correctOption;
       
+      console.log(`Question ${num}: User answered ${userAnswer}, Correct is ${correctOption}, Is correct: ${isCorrect}`);
+      
       results[num] = {
         userAnswer,
         correctOption,
@@ -209,6 +313,9 @@ function App() {
       
       if (isCorrect) correctAnswers++;
     });
+    
+    console.log(`Total correct answers: ${correctAnswers}, Quiz answers:`, quizAnswers);
+    console.log('Quiz results:', results);
     
     setQuizResults(results);
     setQuizCompleted(true);
@@ -258,25 +365,55 @@ function App() {
         currentProgress: quizCompleted ? Math.round((quizScore / 3) * 100) : 0
       } : null;
       
-      setTimeout(() => {
-        const aiResponse = generateAIResponse(userMessage.content, contextInfo);
-        const aiMessage = {
-          id: Date.now() + 1,
-          type: 'ai',
-          content: aiResponse,
-          timestamp: new Date().toLocaleTimeString()
-        };
-        
-        setChatMessages(prev => [...prev, aiMessage]);
-        setChatLoading(false);
-      }, 1000 + Math.random() * 2000);
+      // Send message to backend chat API
+      const form = new FormData();
+      form.append('message', userMessage.content);
+      if (progress?.session_id) {
+        form.append('session_id', progress.session_id);
+      }
+      if (contextInfo) {
+        form.append('context', JSON.stringify(contextInfo));
+      }
+      
+      const response = await fetch('http://localhost:8000/chat', {
+        method: 'POST',
+        body: form,
+      });
+      
+      if (!response.ok) {
+        throw new Error('Chat API error');
+      }
+      
+      const result = await response.json();
+      
+      const aiMessage = {
+        id: Date.now() + 1,
+        type: 'ai',
+        content: result.response,
+        timestamp: new Date().toLocaleTimeString()
+      };
+      
+      setChatMessages(prev => [...prev, aiMessage]);
+      setChatLoading(false);
       
     } catch (error) {
+      console.error('Chat error:', error);
       setChatLoading(false);
+      
+      // Fallback to local response if API fails
+      const contextInfo = data ? {
+        hasQuiz: !!(data.question1 || data.question2 || data.question3),
+        hasFlashcards: !!(data.flashcards && data.flashcards.length > 0),
+        summary: data.summary,
+        concepts: data.key_concepts,
+        currentProgress: quizCompleted ? Math.round((quizScore / 3) * 100) : 0
+      } : null;
+      
+      const aiResponse = generateAIResponse(userMessage.content, contextInfo);
       const errorMessage = {
         id: Date.now() + 1,
         type: 'ai',
-        content: 'I apologize, but I\'m having trouble connecting right now. Please try again in a moment.',
+        content: aiResponse,
         timestamp: new Date().toLocaleTimeString()
       };
       setChatMessages(prev => [...prev, errorMessage]);
@@ -366,9 +503,34 @@ function App() {
     }));
   };
 
-  const savePreferences = () => {
-    localStorage.setItem('userPreferences', JSON.stringify(userPreferences));
-    alert('Preferences saved successfully!');
+  const savePreferences = async () => {
+    try {
+      // Save to localStorage as backup
+      localStorage.setItem('userPreferences', JSON.stringify(userPreferences));
+      
+      // Save to backend if we have a session
+      if (progress?.session_id) {
+        const form = new FormData();
+        form.append('session_id', progress.session_id);
+        form.append('preferences', JSON.stringify(userPreferences));
+        
+        const response = await fetch('http://localhost:8000/preferences', {
+          method: 'POST',
+          body: form,
+        });
+        
+        if (response.ok) {
+          alert('Preferences saved successfully to your learning profile!');
+        } else {
+          throw new Error('Failed to save to backend');
+        }
+      } else {
+        alert('Preferences saved locally! Generate some content to sync with your learning profile.');
+      }
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      alert('Preferences saved locally, but could not sync to server.');
+    }
   };
 
   const resetPreferences = () => {
@@ -434,26 +596,32 @@ function App() {
           </div>
         </div>
 
-        {data && (
-          <div className="stats-grid">
-            <div className="stat-card">
-              <span className="stat-value">{analytics.totalQuestions}</span>
-              <span className="stat-label">Assessment Questions</span>
-            </div>
-            <div className="stat-card">
-              <span className="stat-value">{analytics.flashcards}</span>
-              <span className="stat-label">Study Flashcards</span>
-            </div>
-            <div className="stat-card">
-              <span className="stat-value">{analytics.concepts}</span>
-              <span className="stat-label">Key Concepts</span>
-            </div>
-            <div className="stat-card">
-              <span className="stat-value">{analytics.progress}%</span>
-              <span className="stat-label">Learning Progress</span>
-            </div>
+        <div className="stats-grid">
+          <div className="stat-card">
+            <span className="stat-value">{analytics.totalQuestions}</span>
+            <span className="stat-label">Assessment Questions</span>
           </div>
-        )}
+          <div className="stat-card">
+            <span className="stat-value">{analytics.flashcards}</span>
+            <span className="stat-label">Study Flashcards</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-value">{analytics.concepts}</span>
+            <span className="stat-label">Key Concepts</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-value">{analytics.progress}%</span>
+            <span className="stat-label">Learning Progress</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-value">{Math.round(analytics.totalStudyTime / 60) || 0}h</span>
+            <span className="stat-label">Study Time</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-value">{analytics.learningStreak}</span>
+            <span className="stat-label">Day Streak</span>
+          </div>
+        </div>
         
         <div className="features-grid">
           <div className="feature-card">
@@ -1078,43 +1246,133 @@ function App() {
     
     return (
       <div style={{ marginTop: 'var(--space-8)' }}>
-        {/* Summary Card */}
+        {/* Enhanced Content Summary */}
         {data.summary && (
-          <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
-            <div className="card-header">
-              <div className="card-icon">📄</div>
-              <div className="card-title">Content Summary</div>
+          <div className="content-summary-section">
+            <div className="summary-header">
+              <div className="summary-title">
+                <span className="summary-icon">📋</span>
+                <h3>Content Summary</h3>
+              </div>
+              <div className="summary-meta">
+                <span className="reading-time">⏱️ ~{Math.ceil(data.summary.split(' ').length / 200)} min read</span>
+              </div>
             </div>
-            <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>{data.summary}</p>
+            
+            <div className="summary-content">
+              <div className="summary-text">
+                {data.summary}
+              </div>
+              
+              <div className="summary-actions">
+                <button 
+                  className="summary-action-btn"
+                  onClick={() => {
+                    navigator.clipboard.writeText(data.summary);
+                    alert('Summary copied to clipboard!');
+                  }}
+                >
+                  📋 Copy Summary
+                </button>
+                <button 
+                  className="summary-action-btn"
+                  onClick={() => setTab('chat')}
+                >
+                  💬 Discuss Summary
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Quiz Section */}
+        {/* Enhanced Key Concepts Visualization */}
+        {data.key_concepts && data.key_concepts.length > 0 && (
+          <div className="key-concepts-section">
+            <div className="concepts-header">
+              <div className="concepts-title">
+                <span className="concepts-icon">🔑</span>
+                <h3>Key Concepts</h3>
+              </div>
+              <div className="concepts-count">
+                {data.key_concepts.length} concepts identified
+              </div>
+            </div>
+            
+            <div className="concepts-grid">
+              {data.key_concepts.map((concept, index) => (
+                <div key={index} className="concept-card">
+                  <div className="concept-number">{index + 1}</div>
+                  <div className="concept-content">
+                    <div className="concept-text">{concept}</div>
+                    <button 
+                      className="concept-action"
+                      onClick={() => {
+                        setChatInput(`Can you explain more about: ${concept}`);
+                        setTab('chat');
+                      }}
+                      title="Ask AI about this concept"
+                    >
+                      🤖 Ask AI
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="concepts-visualization">
+              <h4>Concept Map</h4>
+              <div className="concept-map">
+                <div className="concept-center">
+                  <span className="main-topic">Learning Topic</span>
+                </div>
+                {data.key_concepts.slice(0, 6).map((concept, index) => (
+                  <div 
+                    key={index} 
+                    className={`concept-node concept-node-${index + 1}`}
+                    style={{
+                      '--angle': `${(360 / Math.min(data.key_concepts.length, 6)) * index}deg`,
+                      '--radius': '120px'
+                    }}
+                  >
+                    <span className="node-text">{concept.length > 25 ? concept.substring(0, 25) + '...' : concept}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Enhanced Quiz Section with Detailed Feedback */}
         {(data.question1 || data.question2 || data.question3) && (
           <div className="quiz-container">
             <div className="quiz-header">
-              <h2 className="quiz-title">Knowledge Assessment</h2>
+              <h2 className="quiz-title">🎓 Knowledge Assessment</h2>
               <p className="quiz-subtitle">Test your understanding with interactive questions</p>
             </div>
             
             {!quizCompleted ? (
               <>
-                <div className="quiz-progress">
-                  <div className="progress-bar">
+                <div className="quiz-progress-enhanced">
+                  <div className="progress-bar-enhanced">
                     {[1, 2, 3].map((num) => (
                       <div 
                         key={num} 
-                        className={`progress-step ${num <= currentQuestion ? 'active' : ''} ${quizAnswers[num] !== undefined ? 'completed' : ''}`}
-                      />
+                        className={`progress-step-enhanced ${num < currentQuestion ? 'completed' : num === currentQuestion ? 'active' : 'upcoming'}`}
+                      >
+                        <div className="step-number">{num}</div>
+                        <div className="step-label">
+                          {num < currentQuestion ? '✓' : num === currentQuestion ? 'Current' : 'Upcoming'}
+                        </div>
+                      </div>
                     ))}
                   </div>
-                  <div className="progress-info">
-                    <span>Question {currentQuestion} of 3</span>
-                    <span>{Object.keys(quizAnswers).length} answered</span>
+                  <div className="progress-info-enhanced">
+                    <span className="current-progress">Question {currentQuestion} of 3</span>
+                    <span className="answers-count">{Object.keys(quizAnswers).length} answered</span>
                   </div>
                 </div>
                 
-                <div className="question-container">
+                <div className="question-container-enhanced">
                   {(() => {
                     const question = data[`question${currentQuestion}`];
                     const options = data[`options${currentQuestion}`] || [];
@@ -1123,19 +1381,26 @@ function App() {
                     
                     return (
                       <>
-                        <div className="question-header">
-                          <span className="question-number">Question {currentQuestion}</span>
-                          <span className="bloom-level">{bloomLevel}</span>
+                        <div className="question-header-enhanced">
+                          <div className="question-meta">
+                            <span className="question-number">Question {currentQuestion}</span>
+                            <span className={`bloom-level bloom-${bloomLevel.toLowerCase()}`}>
+                              {bloomLevel}
+                            </span>
+                          </div>
                         </div>
-                        <p className="question-text">{question}</p>
-                        <div className="quiz-options">
+                        <div className="question-text-enhanced">{question}</div>
+                        <div className="quiz-options-enhanced">
                           {options.map((option, optionIndex) => (
                             <div 
                               key={optionIndex} 
-                              className={`quiz-option ${quizAnswers[currentQuestion] === optionIndex ? 'selected' : ''}`}
+                              className={`quiz-option-enhanced ${quizAnswers[currentQuestion] === optionIndex ? 'selected' : ''}`}
                               onClick={() => handleQuizAnswer(currentQuestion, optionIndex)}
                             >
-                              <span className="option-text">{option}</span>
+                              <div className="option-indicator">
+                                {String.fromCharCode(65 + optionIndex)}
+                              </div>
+                              <span className="option-text-enhanced">{option}</span>
                             </div>
                           ))}
                         </div>
@@ -1145,39 +1410,272 @@ function App() {
                 </div>
               </>
             ) : (
-              <div className="card">
-                <div style={{
-                  textAlign: 'center',
-                  padding: 'var(--space-6)',
-                  background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)',
-                  color: 'white',
-                  borderRadius: 'var(--radius-xl)',
-                  marginBottom: 'var(--space-6)'
-                }}>
-                  <h3 style={{ marginBottom: 'var(--space-2)' }}>🎉 Assessment Complete!</h3>
-                  <p style={{ marginBottom: 'var(--space-4)', opacity: 0.9 }}>You scored {quizScore} out of 3 questions correctly</p>
-                  <div style={{ fontSize: '3rem', fontWeight: 800 }}>
-                    {Math.round((quizScore / 3) * 100)}%
+              <div className="quiz-results-enhanced">
+                <div className="results-summary-improved">
+                  <div className="score-section">
+                    <div className="score-circle">
+                      <div className="score-percentage">{Math.round((quizScore / 3) * 100)}%</div>
+                      <div className="score-label">Overall Score</div>
+                    </div>
+                    <div className="score-breakdown">
+                      <div className="score-stat">
+                        <span className="stat-number">{quizScore}</span>
+                        <span className="stat-label">Correct</span>
+                      </div>
+                      <div className="score-divider">•</div>
+                      <div className="score-stat">
+                        <span className="stat-number">{3 - quizScore}</span>
+                        <span className="stat-label">Incorrect</span>
+                      </div>
+                      <div className="score-divider">•</div>
+                      <div className="score-stat">
+                        <span className="stat-number">3</span>
+                        <span className="stat-label">Total</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="assessment-summary">
+                    <h3>🎉 Assessment Complete!</h3>
+                    <p className="results-text">
+                      You answered <strong>{quizScore} out of 3</strong> questions correctly
+                    </p>
+                    <div className="performance-badge">
+                      {quizScore === 3 ? (
+                        <span className="performance excellent">🌟 Excellent work!</span>
+                      ) : quizScore >= 2 ? (
+                        <span className="performance good">👍 Good job!</span>
+                      ) : (
+                        <span className="performance needs-improvement">📚 Keep practicing!</span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
-                <button className="btn btn-primary" onClick={resetQuiz}>
-                  🔄 Retake Assessment
-                </button>
+                <div className="detailed-feedback-section">
+                  <div className="feedback-header-section">
+                    <h4>📝 Detailed Question Analysis</h4>
+                    <p className="feedback-subtitle">Review your answers and learn from explanations</p>
+                  </div>
+                  
+                  <div className="feedback-grid">
+                    {[1, 2, 3].map((questionNum) => {
+                    const question = data[`question${questionNum}`];
+                    const options = data[`options${questionNum}`] || [];
+                    const userAnswer = quizAnswers[questionNum];
+                    const correctAnswer = data[`correct_option${questionNum}`] || 0;
+                    const explanation = data[`explanation${questionNum}`] || '';
+                    const isCorrect = userAnswer === correctAnswer;
+                    
+                    if (!question) return null;
+                    
+                    return (
+                      <div key={questionNum} className="feedback-item">
+                        <div className="feedback-header">
+                          <span className="feedback-question-num">Q{questionNum}</span>
+                          <span className={`feedback-result ${isCorrect ? 'correct' : 'incorrect'}`}>
+                            {isCorrect ? '✅ Correct' : '❌ Incorrect'}
+                          </span>
+                        </div>
+                        
+                        <div className="feedback-question">{question}</div>
+                        
+                        <div className="feedback-answers">
+                          <div className="answer-comparison">
+                            {userAnswer !== undefined && (
+                              <div className={`user-answer ${isCorrect ? 'correct' : 'incorrect'}`}>
+                                <span className="answer-label">Your answer:</span>
+                                <span className="answer-text">
+                                  {String.fromCharCode(65 + userAnswer)}. {options[userAnswer]}
+                                </span>
+                              </div>
+                            )}
+                            
+                            {!isCorrect && (
+                              <div className="correct-answer">
+                                <span className="answer-label">Correct answer:</span>
+                                <span className="answer-text">
+                                  {String.fromCharCode(65 + correctAnswer)}. {options[correctAnswer]}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {explanation && (
+                            <div className="explanation">
+                              <span className="explanation-label">💡 Explanation:</span>
+                              <p className="explanation-text">{explanation}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                    })}
+                  </div>
+                </div>
+                
+                <div className="quiz-actions">
+                  <button className="btn btn-primary btn-large" onClick={resetQuiz}>
+                    🔄 Retake Assessment
+                  </button>
+                  <button className="btn btn-secondary" onClick={() => setTab('chat')}>
+                    💬 Discuss Results with AI
+                  </button>
+                </div>
               </div>
             )}
           </div>
         )}
 
-        {/* Flashcards (condensed) */}
+        {/* Enhanced Interactive Flashcards */}
         {data.flashcards && data.flashcards.length > 0 && (
-          <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
-            <div className="card-header">
-              <div className="card-icon">📚</div>
-              <div className="card-title">Study Flashcards</div>
-              <div className="card-subtitle">{data.flashcards.length} cards available</div>
+          <div className="flashcard-section">
+            <div className="flashcard-header">
+              <div className="flashcard-title">
+                <span className="flashcard-icon">📚</span>
+                <h3>Study Flashcards</h3>
+              </div>
+              <div className="flashcard-counter">
+                <span className="current-card">{currentFlashcard + 1}</span>
+                <span className="card-separator">of</span>
+                <span className="total-cards">{data.flashcards.length}</span>
+              </div>
             </div>
-            <p style={{ color: 'var(--text-secondary)' }}>Interactive flashcards to reinforce your learning with spaced repetition.</p>
+            
+            <div className="flashcard-container-enhanced">
+              <div className="flashcard-navigation">
+                <button 
+                  className={`nav-btn prev-btn ${currentFlashcard === 0 ? 'disabled' : ''}`}
+                  onClick={() => {
+                    if (currentFlashcard > 0) {
+                      setCurrentFlashcard(currentFlashcard - 1);
+                      setShowFlashcardAnswer(false);
+                    }
+                  }}
+                  disabled={currentFlashcard === 0}
+                >
+                  <span className="nav-icon">‹</span>
+                  <span className="nav-text">Previous</span>
+                </button>
+                
+                <div className="flashcard-wrapper">
+                  <div className="flashcard-enhanced">
+                    <div className={`flashcard-inner ${showFlashcardAnswer ? 'flipped' : ''}`}>
+                      <div className="flashcard-front-enhanced">
+                        <div className="card-type-indicator">Question</div>
+                        <div className="flashcard-content">
+                          <div className="content-text">
+                            {data.flashcards[currentFlashcard]?.front || data.flashcards[currentFlashcard]?.question}
+                          </div>
+                        </div>
+                        <button 
+                          className="reveal-btn" 
+                          onClick={() => setShowFlashcardAnswer(true)}
+                        >
+                          <span className="reveal-icon">👁️</span>
+                          Reveal Answer
+                        </button>
+                      </div>
+                      
+                      <div className="flashcard-back-enhanced">
+                        <div className="card-type-indicator answer">Answer</div>
+                        <div className="flashcard-content">
+                          <div className="content-text">
+                            {data.flashcards[currentFlashcard]?.back || data.flashcards[currentFlashcard]?.answer}
+                          </div>
+                        </div>
+                        
+                        <div className="flashcard-actions-enhanced">
+                          <div className="action-prompt">How well did you know this?</div>
+                          <div className="action-buttons">
+                            <button 
+                              className="action-btn difficult" 
+                              onClick={() => handleFlashcardReview(false)}
+                            >
+                              <span className="action-icon">😓</span>
+                              <span className="action-text">Difficult</span>
+                            </button>
+                            <button 
+                              className="action-btn easy" 
+                              onClick={() => handleFlashcardReview(true)}
+                            >
+                              <span className="action-icon">😊</span>
+                              <span className="action-text">Easy</span>
+                            </button>
+                          </div>
+                          <button 
+                            className="hide-answer-btn" 
+                            onClick={() => setShowFlashcardAnswer(false)}
+                          >
+                            Hide Answer
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <button 
+                  className={`nav-btn next-btn ${currentFlashcard === data.flashcards.length - 1 ? 'disabled' : ''}`}
+                  onClick={() => {
+                    if (currentFlashcard < data.flashcards.length - 1) {
+                      setCurrentFlashcard(currentFlashcard + 1);
+                      setShowFlashcardAnswer(false);
+                    }
+                  }}
+                  disabled={currentFlashcard === data.flashcards.length - 1}
+                >
+                  <span className="nav-text">Next</span>
+                  <span className="nav-icon">›</span>
+                </button>
+              </div>
+              
+              <div className="flashcard-progress-enhanced">
+                <div className="progress-bar-flashcards">
+                  <div 
+                    className="progress-fill" 
+                    style={{ width: `${((currentFlashcard + 1) / data.flashcards.length) * 100}%` }}
+                  ></div>
+                </div>
+                <div className="progress-dots-enhanced">
+                  {data.flashcards.map((_, index) => (
+                    <button
+                      key={index}
+                      className={`progress-dot-enhanced ${index === currentFlashcard ? 'active' : index < currentFlashcard ? 'completed' : 'upcoming'}`}
+                      onClick={() => {
+                        setCurrentFlashcard(index);
+                        setShowFlashcardAnswer(false);
+                      }}
+                      title={`Go to card ${index + 1}`}
+                    >
+                      {index < currentFlashcard ? '✓' : index + 1}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="flashcard-controls">
+                <button 
+                  className="control-btn shuffle-btn"
+                  onClick={() => {
+                    const randomIndex = Math.floor(Math.random() * data.flashcards.length);
+                    setCurrentFlashcard(randomIndex);
+                    setShowFlashcardAnswer(false);
+                  }}
+                >
+                  🔀 Shuffle
+                </button>
+                <button 
+                  className="control-btn restart-btn"
+                  onClick={() => {
+                    setCurrentFlashcard(0);
+                    setShowFlashcardAnswer(false);
+                  }}
+                >
+                  🔄 Restart
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

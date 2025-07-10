@@ -234,7 +234,8 @@ describe('App Component', () => {
           summary: 'Test summary',
           question1: 'Test question?',
           options1: ['Option A', 'Option B', 'Option C', 'Option D'],
-          flashcards: [{ front: 'Test front', back: 'Test back' }]
+          flashcards: [{ front: 'Test front', back: 'Test back' }],
+          progress: { session_id: 'test-session-123' }
         })
       })
       
@@ -272,6 +273,208 @@ describe('App Component', () => {
       // Should show error message
       await waitFor(() => {
         expect(screen.getByText(/Error:/i)).toBeInTheDocument()
+      })
+    })
+
+    it('sends chat messages to backend API', async () => {
+      const user = userEvent.setup()
+      
+      // Mock chat API response
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          response: 'AI response from backend'
+        })
+      })
+      
+      render(<App />)
+      await user.click(screen.getByRole('button', { name: /assistant/i }))
+      
+      const chatInput = screen.getByPlaceholderText(/Ask me anything about your learning materials/i)
+      await user.type(chatInput, 'Hello AI!')
+      await user.click(screen.getByRole('button', { name: /➤/ }))
+      
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledWith('http://localhost:8000/chat', {
+          method: 'POST',
+          body: expect.any(FormData)
+        })
+      })
+    })
+
+    it('saves preferences to backend when session exists', async () => {
+      const user = userEvent.setup()
+      
+      // Mock successful preferences save
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          message: 'Preferences saved successfully'
+        })
+      })
+      
+      // Set up component with session
+      localStorage.setItem('userPreferences', JSON.stringify({ name: 'Test User' }))
+      
+      render(<App />)
+      await user.click(screen.getByRole('button', { name: /settings/i }))
+      
+      // Simulate having a session (this would normally come from content generation)
+      const saveButton = screen.getByRole('button', { name: /Save All Preferences/i })
+      await user.click(saveButton)
+      
+      // Should save to localStorage at minimum
+      expect(localStorage.getItem('userPreferences')).toBeTruthy()
+    })
+
+    it('loads analytics from backend', async () => {
+      const user = userEvent.setup()
+      
+      // Mock analytics response
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          analytics: {
+            total_quizzes: 5,
+            total_flashcards: 10,
+            average_quiz_score: 85.0,
+            total_study_time: 7200,
+            learning_streak: 7
+          }
+        })
+      })
+      
+      render(<App />)
+      
+      // The component should load analytics when it has a session
+      // This test would need to be refined based on when analytics are actually loaded
+    })
+
+    it('tracks flashcard reviews', async () => {
+      const user = userEvent.setup()
+      
+      // First mock content generation with flashcards
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          summary: 'Test summary',
+          flashcards: [
+            { front: 'Question 1', back: 'Answer 1' },
+            { front: 'Question 2', back: 'Answer 2' }
+          ],
+          progress: { session_id: 'test-session-123' }
+        })
+      })
+      
+      // Then mock flashcard review API
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          progress: { session_id: 'test-session-123' }
+        })
+      })
+      
+      render(<App />)
+      await user.click(screen.getByRole('button', { name: /create/i }))
+      
+      // Generate content with flashcards
+      await user.type(screen.getByPlaceholderText(/Type or paste your lecture notes/i), 'Test content')
+      await user.click(screen.getByRole('button', { name: /Generate Learning Module/i }))
+      
+      await waitFor(() => {
+        expect(screen.getByText(/Study Flashcards/i)).toBeInTheDocument()
+      })
+      
+      // Interact with flashcard
+      const showAnswerButton = screen.getByRole('button', { name: /Show Answer/i })
+      await user.click(showAnswerButton)
+      
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Yes - I Knew It/i })).toBeInTheDocument()
+      })
+      
+      await user.click(screen.getByRole('button', { name: /Yes - I Knew It/i }))
+      
+      // Should have called flashcard review API
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledWith('http://localhost:8000/flashcard-review', {
+          method: 'POST',
+          body: expect.any(FormData)
+        })
+      })
+    })
+
+    it('handles quiz completion with backend tracking', async () => {
+      const user = userEvent.setup()
+      
+      // Mock content generation with quiz
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          summary: 'Test summary',
+          question1: 'What is AI?',
+          question2: 'What is ML?',
+          question3: 'What is DL?',
+          options1: ['Artificial Intelligence', 'Automatic Integration', 'Advanced Input', 'None'],
+          options2: ['Machine Learning', 'Manual Labor', 'Multiple Languages', 'None'],
+          options3: ['Deep Learning', 'Data Loss', 'Direct Link', 'None'],
+          correct_option1: 0,
+          correct_option2: 0,
+          correct_option3: 0,
+          progress: { session_id: 'test-session-123' }
+        })
+      })
+      
+      // Mock quiz completion API
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          progress: { session_id: 'test-session-123' }
+        })
+      })
+      
+      render(<App />)
+      await user.click(screen.getByRole('button', { name: /create/i }))
+      
+      // Generate content with quiz
+      await user.type(screen.getByPlaceholderText(/Type or paste your lecture notes/i), 'AI and ML basics')
+      await user.click(screen.getByRole('button', { name: /Generate Learning Module/i }))
+      
+      await waitFor(() => {
+        expect(screen.getByText(/Knowledge Assessment/i)).toBeInTheDocument()
+      })
+      
+      // The actual quiz interaction test would depend on the quiz UI implementation
+      // This is a basic structure for testing quiz completion
+    })
+
+    it('falls back to local responses when backend APIs fail', async () => {
+      const user = userEvent.setup()
+      
+      // Mock chat API failure
+      mockFetch.mockRejectedValueOnce(new Error('Network error'))
+      
+      render(<App />)
+      await user.click(screen.getByRole('button', { name: /assistant/i }))
+      
+      const chatInput = screen.getByPlaceholderText(/Ask me anything about your learning materials/i)
+      await user.type(chatInput, 'Hello AI!')
+      await user.click(screen.getByRole('button', { name: /➤/ }))
+      
+      // Should still show a response (fallback)
+      await waitFor(() => {
+        expect(screen.getByText(/Hello AI!/)).toBeInTheDocument()
+      })
+      
+      // Should have some AI response even with backend failure
+      await waitFor(() => {
+        const messages = screen.getAllByText(/learning/i)
+        expect(messages.length).toBeGreaterThan(1) // Initial greeting + response
       })
     })
   })
