@@ -263,13 +263,13 @@ function App() {
   const renderPreview = (type) => {
     if (!files[type]) return null;
     if (type === 'image') {
-      return <img src={URL.createObjectURL(files.image)} alt="preview" style={{ maxWidth: '100%', maxHeight: '100px', borderRadius: '8px' }} />;
+      return <img src={URL.createObjectURL(files.image)} alt="preview" className="max-w-full max-h-20 rounded-lg" />;
     }
     if (type === 'audio') {
-      return <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>{files.audio.name}</span>;
+      return <span className="text-gray-600 text-sm">{files.audio.name}</span>;
     }
     if (type === 'text') {
-      return <pre style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', whiteSpace: 'pre-wrap' }}>{textPreview.current || files.text.name}</pre>;
+      return <pre className="text-gray-600 text-sm whitespace-pre-wrap">{textPreview.current || files.text.name}</pre>;
     }
     return null;
   };
@@ -566,12 +566,12 @@ function App() {
     const analytics = getAnalytics();
     
     return (
-      <div className="main-content">
-        <div className="hero-section">
-          <h1 className="hero-title">
-            AI-Powered <span className="highlight">Microlearning</span> Generator
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        <div className="text-center py-16 pb-12 max-w-4xl mx-auto">
+          <h1 className="text-6xl font-black leading-tight text-gray-900 mb-6 tracking-tight">
+            AI-Powered <span className="bg-gradient-to-r from-blue-600 to-emerald-500 bg-clip-text text-transparent">Microlearning</span> Generator
           </h1>
-          <p className="hero-subtitle">
+          <p className="text-xl text-gray-600 font-normal leading-relaxed mb-8 max-w-2xl mx-auto">
             {userPreferences.name 
               ? `Welcome back, ${userPreferences.name}! Ready for your personalized learning session?`
               : 'Transform your educational content into comprehensive, interactive learning experiences with advanced AI technology'
@@ -579,89 +579,95 @@ function App() {
           </p>
           
           {userPreferences.name && (
-            <div className="personalization-bar">
-              <h3>Your Learning Profile</h3>
-              <p>Optimized for {userPreferences.learningStyle} learning • {userPreferences.difficulty} difficulty • {userPreferences.pace} pace</p>
-      </div>
+            <div className="bg-gradient-to-r from-blue-600 to-blue-500 text-white p-6 rounded-3xl mx-auto max-w-2xl text-center shadow-xl mb-8">
+              <h3 className="text-lg font-semibold mb-2">Your Learning Profile</h3>
+              <p className="opacity-90 text-sm">Optimized for {userPreferences.learningStyle} learning • {userPreferences.difficulty} difficulty • {userPreferences.pace} pace</p>
+            </div>
           )}
           
-          <div className="hero-cta">
+          <div className="flex flex-col items-center gap-4">
             <button 
-              className="btn btn-primary btn-large"
+              className="inline-flex items-center gap-3 px-8 py-4 bg-blue-600 text-white font-semibold text-base rounded-xl hover:bg-blue-700 transform hover:-translate-y-1 transition-all duration-200 shadow-md hover:shadow-lg"
               onClick={() => setTab('generator')}
             >
-              <span>🚀</span>
+              <span className="text-lg">🚀</span>
               Start Creating Learning Content
             </button>
           </div>
         </div>
 
-        <div className="stats-grid">
-          <div className="stat-card">
-            <span className="stat-value">{analytics.totalQuestions}</span>
-            <span className="stat-label">Assessment Questions</span>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-8">
+          <div className="bg-white p-6 rounded-xl border border-gray-100 text-center transition-all duration-200 hover:border-blue-500 hover:shadow-sm">
+            <span className="block text-4xl font-black text-blue-600 leading-none">{analytics.totalQuestions}</span>
+            <span className="text-sm text-gray-600 font-medium mt-2 block">Assessment Questions</span>
           </div>
-          <div className="stat-card">
-            <span className="stat-value">{analytics.flashcards}</span>
-            <span className="stat-label">Study Flashcards</span>
+          <div className="bg-white p-6 rounded-xl border border-gray-100 text-center transition-all duration-200 hover:border-blue-500 hover:shadow-sm">
+            <span className="block text-4xl font-black text-blue-600 leading-none">{analytics.flashcards}</span>
+            <span className="text-sm text-gray-600 font-medium mt-2 block">Study Flashcards</span>
           </div>
-          <div className="stat-card">
-            <span className="stat-value">{analytics.concepts}</span>
-            <span className="stat-label">Key Concepts</span>
+          <div className="bg-white p-6 rounded-xl border border-gray-100 text-center transition-all duration-200 hover:border-blue-500 hover:shadow-sm">
+            <span className="block text-4xl font-black text-blue-600 leading-none">{analytics.concepts}</span>
+            <span className="text-sm text-gray-600 font-medium mt-2 block">Key Concepts</span>
           </div>
-          <div className="stat-card">
-            <span className="stat-value">{analytics.progress}%</span>
-            <span className="stat-label">Learning Progress</span>
+          <div className="bg-white p-6 rounded-xl border border-gray-100 text-center transition-all duration-200 hover:border-blue-500 hover:shadow-sm">
+            <span className="block text-4xl font-black text-blue-600 leading-none">{analytics.progress}%</span>
+            <span className="text-sm text-gray-600 font-medium mt-2 block">Learning Progress</span>
           </div>
-          <div className="stat-card">
-            <span className="stat-value">{Math.round(analytics.totalStudyTime / 60) || 0}h</span>
-            <span className="stat-label">Study Time</span>
+          <div className="bg-white p-6 rounded-xl border border-gray-100 text-center transition-all duration-200 hover:border-blue-500 hover:shadow-sm">
+            <span className="block text-4xl font-black text-blue-600 leading-none">{Math.round(analytics.totalStudyTime / 60) || 0}h</span>
+            <span className="text-sm text-gray-600 font-medium mt-2 block">Study Time</span>
           </div>
-          <div className="stat-card">
-            <span className="stat-value">{analytics.learningStreak}</span>
-            <span className="stat-label">Day Streak</span>
+          <div className="bg-white p-6 rounded-xl border border-gray-100 text-center transition-all duration-200 hover:border-blue-500 hover:shadow-sm">
+            <span className="block text-4xl font-black text-blue-600 leading-none">{analytics.learningStreak}</span>
+            <span className="text-sm text-gray-600 font-medium mt-2 block">Day Streak</span>
           </div>
         </div>
         
-        <div className="features-grid">
-          <div className="feature-card">
-            <div className="feature-icon">🎤</div>
-            <h3>Audio Intelligence</h3>
-            <p>Advanced speech recognition transforms lectures and recordings into structured learning materials with key insights and summaries</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
+          <div className="bg-white rounded-3xl p-8 border border-gray-100 transition-all duration-300 hover:transform hover:-translate-y-1 hover:shadow-lg hover:border-blue-500 relative overflow-hidden group">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-emerald-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+            <div className="text-4xl mb-4 block">🎤</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-3">Audio Intelligence</h3>
+            <p className="text-gray-600 text-sm leading-relaxed">Advanced speech recognition transforms lectures and recordings into structured learning materials with key insights and summaries</p>
           </div>
           
-          <div className="feature-card">
-            <div className="feature-icon">🖼️</div>
-            <h3>Visual Analysis</h3>
-            <p>AI-powered image understanding extracts knowledge from diagrams, charts, and educational visuals for comprehensive learning</p>
+          <div className="bg-white rounded-3xl p-8 border border-gray-100 transition-all duration-300 hover:transform hover:-translate-y-1 hover:shadow-lg hover:border-blue-500 relative overflow-hidden group">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-emerald-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+            <div className="text-4xl mb-4 block">🖼️</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-3">Visual Analysis</h3>
+            <p className="text-gray-600 text-sm leading-relaxed">AI-powered image understanding extracts knowledge from diagrams, charts, and educational visuals for comprehensive learning</p>
           </div>
           
-          <div className="feature-card">
-            <div className="feature-icon">📝</div>
-            <h3>Text Processing</h3>
-            <p>Natural language processing creates concise summaries, learning objectives, and structured content from any text source</p>
+          <div className="bg-white rounded-3xl p-8 border border-gray-100 transition-all duration-300 hover:transform hover:-translate-y-1 hover:shadow-lg hover:border-blue-500 relative overflow-hidden group">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-emerald-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+            <div className="text-4xl mb-4 block">📝</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-3">Text Processing</h3>
+            <p className="text-gray-600 text-sm leading-relaxed">Natural language processing creates concise summaries, learning objectives, and structured content from any text source</p>
           </div>
           
-          <div className="feature-card">
-            <div className="feature-icon">🎯</div>
-            <h3>Smart Assessments</h3>
-            <p>Bloom's Taxonomy-aligned questions test comprehension across Remember, Understand, and Apply cognitive levels</p>
+          <div className="bg-white rounded-3xl p-8 border border-gray-100 transition-all duration-300 hover:transform hover:-translate-y-1 hover:shadow-lg hover:border-blue-500 relative overflow-hidden group">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-emerald-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+            <div className="text-4xl mb-4 block">🎯</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-3">Smart Assessments</h3>
+            <p className="text-gray-600 text-sm leading-relaxed">Bloom's Taxonomy-aligned questions test comprehension across Remember, Understand, and Apply cognitive levels</p>
           </div>
 
-          <div className="feature-card">
-            <div className="feature-icon">💬</div>
-            <h3>AI Learning Assistant</h3>
-            <p>Interactive conversational AI provides personalized guidance, explanations, and adaptive learning support</p>
+          <div className="bg-white rounded-3xl p-8 border border-gray-100 transition-all duration-300 hover:transform hover:-translate-y-1 hover:shadow-lg hover:border-blue-500 relative overflow-hidden group">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-emerald-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+            <div className="text-4xl mb-4 block">💬</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-3">AI Learning Assistant</h3>
+            <p className="text-gray-600 text-sm leading-relaxed">Interactive conversational AI provides personalized guidance, explanations, and adaptive learning support</p>
           </div>
 
-          <div className="feature-card">
-            <div className="feature-icon">📊</div>
-            <h3>Learning Analytics</h3>
-            <p>Comprehensive progress tracking with personalized insights and adaptive recommendations for optimal learning</p>
+          <div className="bg-white rounded-3xl p-8 border border-gray-100 transition-all duration-300 hover:transform hover:-translate-y-1 hover:shadow-lg hover:border-blue-500 relative overflow-hidden group">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-emerald-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+            <div className="text-4xl mb-4 block">📊</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-3">Learning Analytics</h3>
+            <p className="text-gray-600 text-sm leading-relaxed">Comprehensive progress tracking with personalized insights and adaptive recommendations for optimal learning</p>
           </div>
+        </div>
       </div>
-    </div>
-  );
+    );
   };
 
   // Alice.tech-inspired Generator Page
@@ -1683,29 +1689,57 @@ function App() {
   };
 
   return (
-    <div className="app-container">
-      {/* Alice.tech-style Header */}
-      <header className="app-header">
-        <div className="header-content">
-          <div className="logo">
-            <span className="logo-icon">🎓</span>
+    <div className="min-h-screen bg-slate-50">
+      {/* Modern Header with Tailwind */}
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 px-4 py-4">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3 font-bold text-xl text-gray-900">
+            <span className="text-2xl">🎓</span>
             <span>MicroLearn AI</span>
           </div>
           
-      <nav className="nav-tabs">
-            <button className={tab === 'home' ? 'active' : ''} onClick={() => setTab('home')}>
+          <nav className="flex bg-gray-100 rounded-xl p-1 gap-1">
+            <button 
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 whitespace-nowrap ${
+                tab === 'home' 
+                  ? 'bg-white text-blue-600 shadow-sm font-semibold' 
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-blue-50'
+              }`}
+              onClick={() => setTab('home')}
+            >
               <span>🏠</span> Home
             </button>
-            <button className={tab === 'generator' ? 'active' : ''} onClick={() => setTab('generator')}>
+            <button 
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 whitespace-nowrap ${
+                tab === 'generator' 
+                  ? 'bg-white text-blue-600 shadow-sm font-semibold' 
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-blue-50'
+              }`}
+              onClick={() => setTab('generator')}
+            >
               <span>🎯</span> Create
             </button>
-            <button className={tab === 'chat' ? 'active' : ''} onClick={() => setTab('chat')}>
+            <button 
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 whitespace-nowrap ${
+                tab === 'chat' 
+                  ? 'bg-white text-blue-600 shadow-sm font-semibold' 
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-blue-50'
+              }`}
+              onClick={() => setTab('chat')}
+            >
               <span>💬</span> Assistant
             </button>
-            <button className={tab === 'preferences' ? 'active' : ''} onClick={() => setTab('preferences')}>
+            <button 
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 whitespace-nowrap ${
+                tab === 'preferences' 
+                  ? 'bg-white text-blue-600 shadow-sm font-semibold' 
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-blue-50'
+              }`}
+              onClick={() => setTab('preferences')}
+            >
               <span>⚙️</span> Settings
             </button>
-      </nav>
+          </nav>
         </div>
       </header>
       
