@@ -670,24 +670,28 @@ function App() {
     );
   };
 
-  // Alice.tech-inspired Generator Page
+  // Modern Generator Page with Tailwind
   const renderGenerator = () => (
-    <div className="main-content">
-      <div className="hero-section">
-        <h1 className="hero-title">Create Your <span className="highlight">Learning Module</span></h1>
-        <p className="hero-subtitle">Upload your educational content and let AI transform it into comprehensive, interactive learning materials</p>
+    <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="text-center py-16 pb-12 max-w-4xl mx-auto">
+        <h1 className="text-6xl font-black leading-tight text-gray-900 mb-6 tracking-tight">
+          Create Your <span className="bg-gradient-to-r from-blue-600 to-emerald-500 bg-clip-text text-transparent">Learning Module</span>
+        </h1>
+        <p className="text-xl text-gray-600 font-normal leading-relaxed mb-8 max-w-2xl mx-auto">
+          Upload your educational content and let AI transform it into comprehensive, interactive learning materials
+        </p>
       </div>
       
-      <div className="upload-section">
-        <div className="card-header">
-          <div className="card-icon">📁</div>
-    <div>
-            <div className="card-title">Upload Educational Content</div>
-            <div className="card-subtitle">Support for audio, images, and text files</div>
+      <div className="bg-white rounded-3xl p-8 mb-8 border border-gray-100 shadow-sm">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="text-2xl text-blue-600">📁</div>
+          <div>
+            <div className="text-xl font-semibold text-gray-900">Upload Educational Content</div>
+            <div className="text-sm text-gray-600 mt-1">Support for audio, images, and text files</div>
           </div>
         </div>
         
-        <div className="upload-grid">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           {[
             { type: 'audio', icon: '🎤', label: 'Audio File', accept: 'audio/*', desc: 'Lectures, recordings, podcasts' },
             { type: 'image', icon: '🖼️', label: 'Image File', accept: 'image/*', desc: 'Diagrams, charts, screenshots' },
@@ -695,7 +699,9 @@ function App() {
           ].map(({ type, icon, label, accept, desc }) => (
             <div
               key={type}
-              className={`upload-zone${dragActive[type] ? ' active' : ''}`}
+              className={`bg-slate-50 border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer transition-all duration-300 hover:border-blue-500 hover:bg-white hover:transform hover:-translate-y-1 hover:shadow-sm min-h-44 flex flex-col justify-center items-center ${
+                dragActive[type] ? 'border-blue-500 bg-blue-50 scale-105' : ''
+              }`}
               onDragEnter={(e) => handleDrag(e, type)}
               onDragOver={(e) => handleDrag(e, type)}
               onDragLeave={(e) => handleDrag(e, type)}
@@ -707,28 +713,27 @@ function App() {
                 name={type}
                 accept={accept}
                 onChange={handleFile}
-                style={{ display: 'none' }}
+                className="hidden"
               />
               <div
                 onClick={() => document.getElementById(`file-${type}`).click()}
-                style={{ cursor: 'pointer', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}
+                className="cursor-pointer w-full h-full flex flex-col justify-center items-center"
               >
                 {files[type] ? (
-                  <div style={{ textAlign: 'center', width: '100%' }}>
+                  <div className="text-center w-full">
                     {renderPreview(type)}
                     <button 
-                      className="btn btn-secondary" 
+                      className="mt-3 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-900 font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2" 
                       onClick={(e) => { e.stopPropagation(); handleRemove(type); }}
-                      style={{ marginTop: 'var(--space-3)' }}
                     >
                       Remove
                     </button>
                   </div>
                 ) : (
                   <>
-                    <div className="upload-icon">{icon}</div>
-                    <div className="upload-label">{label}</div>
-                    <div className="upload-description">{desc}</div>
+                    <div className="text-4xl text-blue-600 mb-3">{icon}</div>
+                    <div className="font-semibold text-gray-900 mb-2">{label}</div>
+                    <div className="text-gray-600 text-sm">{desc}</div>
                   </>
                 )}
               </div>
@@ -736,54 +741,42 @@ function App() {
           ))}
         </div>
         
-        <div className="text-input-section">
-          <label htmlFor="prompt-input" className="form-label">
+        <div className="mb-6">
+          <label htmlFor="prompt-input" className="block text-sm font-medium text-gray-700 mb-3">
             💭 Or enter your content directly
           </label>
           <textarea
             id="prompt-input"
-            className="text-input"
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
             placeholder="Type or paste your lecture notes, questions, or educational content here..."
             value={prompt}
             onChange={e => setPrompt(e.target.value)}
+            rows="6"
           />
         </div>
         
-        <button className="submit-button" onClick={handleSubmit} disabled={loading}>
+        <button 
+          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-4 px-8 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center gap-3 disabled:cursor-not-allowed"
+          onClick={handleSubmit} 
+          disabled={loading}
+        >
           {loading ? (
             <>
-              <div style={{ 
-                width: '20px', 
-                height: '20px', 
-                border: '2px solid rgba(255,255,255,0.3)', 
-                borderTop: '2px solid white', 
-                borderRadius: '50%', 
-                animation: 'spin 1s linear infinite' 
-              }}></div>
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
               <span>AI is analyzing your content...</span>
             </>
           ) : (
             <>
-              <span>✨</span>
+              <span className="text-lg">✨</span>
               <span>Generate Learning Module</span>
             </>
           )}
         </button>
         
         {error && (
-          <div style={{
-            color: 'var(--error)',
-            background: 'rgba(239, 68, 68, 0.05)',
-            border: '1px solid rgba(239, 68, 68, 0.2)',
-            borderRadius: 'var(--radius-lg)',
-            padding: 'var(--space-4)',
-            marginTop: 'var(--space-4)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)'
-          }}>
+          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
             ⚠️ {error}
-      </div>
+          </div>
         )}
       </div>
       
