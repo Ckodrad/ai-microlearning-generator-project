@@ -94,39 +94,23 @@ function App() {
     }
   });
 
-  // Load preferences from localStorage and backend on component mount
+  // Load preferences from localStorage on component mount
   React.useEffect(() => {
-    const loadPreferences = async () => {
-      // First load from localStorage
-      const savedPreferences = localStorage.getItem('userPreferences');
-      if (savedPreferences) {
-        try {
-          setUserPreferences(JSON.parse(savedPreferences));
-        } catch (error) {
-          console.error('Failed to load local preferences:', error);
-        }
+    const savedPreferences = localStorage.getItem('userPreferences');
+    if (savedPreferences) {
+      try {
+        const loaded = JSON.parse(savedPreferences);
+        setUserPreferences(prev => ({
+          ...prev,
+          ...loaded,
+          studyGoals: Array.isArray(loaded.studyGoals) ? loaded.studyGoals : [],
+          // Add similar lines for other array fields if needed
+        }));
+      } catch (error) {
+        console.error('Failed to load preferences:', error);
       }
-      
-      // If we have a session, try to load from backend
-      if (progress?.session_id) {
-        try {
-          const response = await fetch(`http://localhost:8000/preferences/${progress.session_id}`);
-          if (response.ok) {
-            const result = await response.json();
-            if (result.preferences) {
-              setUserPreferences(result.preferences);
-              // Also update localStorage with backend data
-              localStorage.setItem('userPreferences', JSON.stringify(result.preferences));
-            }
-          }
-        } catch (error) {
-          console.error('Failed to load backend preferences:', error);
-        }
-      }
-    };
-    
-    loadPreferences();
-  }, [progress?.session_id]);
+    }
+  }, []);
 
   // Enhanced analytics with backend integration
   const [analytics, setAnalytics] = React.useState({
