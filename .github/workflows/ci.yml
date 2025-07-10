@@ -1,0 +1,374 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+    
+    - name: Run ESLint
+      working-directory: ./frontend
+      run: npm run lint
+    
+    - name: Run frontend tests
+      working-directory: ./frontend
+      run: npm test -- --coverage --run
+    
+    - name: Upload frontend coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./frontend/coverage/lcov.info
+        flags: frontend
+        name: frontend-coverage
+        token: ${{ secrets.CODECOV_TOKEN }}
+    
+    - name: Build frontend
+      working-directory: ./frontend
+      run: npm run build
+    
+    - name: Upload frontend build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend-dist
+        path: frontend/dist/
+
+  backend-tests:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg
+    
+    - name: Install backend dependencies
+      working-directory: ./backend
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio httpx pytest-mock pytest-cov
+    
+    - name: Run backend unit tests
+      working-directory: ./backend
+      run: pytest tests/ -v --cov=. --cov-report=xml --cov-report=term-missing -m "unit"
+      env:
+        OPENAI_API_KEY: test-key
+    
+    - name: Run backend API tests
+      working-directory: ./backend
+      run: pytest tests/ -v --cov=. --cov-report=xml --cov-report=term-missing -m "api"
+      env:
+        OPENAI_API_KEY: test-key
+    
+    - name: Run backend integration tests
+      working-directory: ./backend
+      run: pytest tests/ -v --cov=. --cov-report=xml --cov-report=term-missing -m "integration"
+      env:
+        OPENAI_API_KEY: test-key
+    
+    - name: Upload backend coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./backend/coverage.xml
+        flags: backend
+        name: backend-coverage
+        token: ${{ secrets.CODECOV_TOKEN }}
+
+  e2e-tests:
+    name: End-to-End Tests
+    runs-on: ubuntu-latest
+    needs: [frontend-tests, backend-tests]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        # Backend dependencies
+        cd backend
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        cd ..
+        
+        # Frontend dependencies
+        cd frontend
+        npm ci
+        cd ..
+    
+    - name: Start backend server
+      working-directory: ./backend
+      run: python server.py &
+      env:
+        OPENAI_API_KEY: test-key
+    
+    - name: Wait for backend to be ready
+      run: |
+        for i in {1..30}; do
+          if curl -f http://localhost:8000/health; then
+            echo "Backend is ready"
+            break
+          fi
+          echo "Waiting for backend... ($i/30)"
+          sleep 2
+        done
+    
+    - name: Build and start frontend
+      working-directory: ./frontend
+      run: |
+        npm run build
+        npm run preview &
+    
+    - name: Wait for frontend to be ready
+      run: |
+        for i in {1..30}; do
+          if curl -f http://localhost:4173; then
+            echo "Frontend is ready"
+            break
+          fi
+          echo "Waiting for frontend... ($i/30)"
+          sleep 2
+        done
+    
+    - name: Install Playwright
+      working-directory: ./frontend
+      run: npx playwright install --with-deps chromium
+    
+    - name: Run E2E tests
+      working-directory: ./frontend
+      run: npx playwright test
+      env:
+        BASE_URL: http://localhost:4173
+        API_URL: http://localhost:8000
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+    
+    - name: Run npm audit
+      working-directory: ./frontend
+      run: |
+        npm ci
+        npm audit --audit-level high
+    
+    - name: Run Python safety check
+      working-directory: ./backend
+      run: |
+        pip install safety
+        safety check
+
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Shallow clones should be disabled for better analysis
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        cd frontend && npm ci && cd ..
+        cd backend && pip install -r requirements.txt && pip install flake8 black isort && cd ..
+    
+    - name: Run ESLint
+      working-directory: ./frontend
+      run: npm run lint
+    
+    - name: Run Python linting (flake8)
+      working-directory: ./backend
+      run: flake8 --max-line-length=100 --exclude=venv,tests --ignore=E203,W503 .
+    
+    - name: Check Python code formatting (black)
+      working-directory: ./backend
+      run: black --check --diff .
+    
+    - name: Check Python import sorting (isort)
+      working-directory: ./backend
+      run: isort --check-only --diff .
+    
+    - name: SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [frontend-tests, backend-tests, security-scan, code-quality]
+    if: github.ref == 'refs/heads/develop'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Deploy to staging
+      run: |
+        echo "Deploying to staging environment..."
+        # Add actual deployment commands here
+    
+    - name: Run smoke tests
+      run: |
+        echo "Running smoke tests against staging..."
+        # Add smoke tests here
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [frontend-tests, backend-tests, e2e-tests, security-scan, code-quality]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download frontend artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: frontend-dist
+        path: frontend/dist/
+    
+    - name: Deploy to production
+      run: |
+        echo "Deploying to production environment..."
+        # Add actual deployment commands here
+    
+    - name: Run production smoke tests
+      run: |
+        echo "Running smoke tests against production..."
+        # Add production smoke tests here
+    
+    - name: Notify deployment
+      if: success()
+      run: |
+        echo "✅ Production deployment successful!"
+        # Add notification logic (Slack, Discord, email, etc.)
+
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: [backend-tests]
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      working-directory: ./backend
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install locust
+    
+    - name: Start backend server
+      working-directory: ./backend
+      run: python server.py &
+      env:
+        OPENAI_API_KEY: test-key
+    
+    - name: Wait for backend
+      run: sleep 10
+    
+    - name: Run performance tests
+      working-directory: ./backend
+      run: |
+        echo "Running performance tests..."
+        # Add Locust performance tests here
+        # locust -f tests/performance/locustfile.py --host=http://localhost:8000 -u 10 -r 2 -t 30s --headless
+
+  notify-status:
+    name: Notify Build Status
+    runs-on: ubuntu-latest
+    needs: [frontend-tests, backend-tests, e2e-tests, security-scan, code-quality]
+    if: always()
+    
+    steps:
+    - name: Notify success
+      if: needs.frontend-tests.result == 'success' && needs.backend-tests.result == 'success' && needs.e2e-tests.result == 'success'
+      run: |
+        echo "✅ All tests passed!"
+        # Add success notification logic
+    
+    - name: Notify failure
+      if: needs.frontend-tests.result == 'failure' || needs.backend-tests.result == 'failure' || needs.e2e-tests.result == 'failure'
+      run: |
+        echo "❌ Some tests failed!"
+        # Add failure notification logic 
