@@ -63,6 +63,9 @@ npm test App.test.jsx
 
 # Run tests in watch mode
 npm test -- --watch
+
+# Run only backend integration tests
+npm test -- --run API
 ```
 
 ### Backend Tests
@@ -89,6 +92,12 @@ pytest -v
 
 # Run tests excluding slow tests
 pytest -m "not slow"
+
+# Test new backend endpoints
+pytest tests/test_api.py::TestChatEndpoint -v
+pytest tests/test_api.py::TestPreferencesEndpoint -v
+pytest tests/test_api.py::TestAnalyticsEndpoint -v
+pytest tests/test_api.py::TestStudySessionEndpoints -v
 ```
 
 ## 🔧 Test Configuration
@@ -151,7 +160,7 @@ def test_create_progress_tracker():
 ### Integration Tests
 Test complete workflows and component interactions.
 
-**Example**:
+**Backend Workflow Example**:
 ```python
 def test_complete_content_processing_workflow(client, mock_openai_api):
     # Step 1: Process content
@@ -165,6 +174,46 @@ def test_complete_content_processing_workflow(client, mock_openai_api):
         "score": 85.0
     })
     assert response.status_code == 200
+```
+
+**Frontend-Backend Integration Example**:
+```javascript
+it('sends chat messages to backend API', async () => {
+  mockFetch.mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({ success: true, response: 'AI response from backend' })
+  })
+  
+  render(<App />)
+  await user.click(screen.getByRole('button', { name: /assistant/i }))
+  
+  const chatInput = screen.getByPlaceholderText(/Ask me anything/)
+  await user.type(chatInput, 'Hello AI!')
+  await user.click(screen.getByRole('button', { name: /➤/ }))
+  
+  await waitFor(() => {
+    expect(mockFetch).toHaveBeenCalledWith('http://localhost:8000/chat', {
+      method: 'POST',
+      body: expect.any(FormData)
+    })
+  })
+})
+```
+
+**Flashcard Tracking Integration**:
+```python
+def test_review_flashcard_correct(client, mock_progress_store, sample_progress_data):
+    session_id = "test-session"
+    mock_progress_store[session_id] = sample_progress_data.copy()
+    
+    response = client.post("/flashcard-review", data={
+        "session_id": session_id,
+        "card_id": "test_card",
+        "correct": True
+    })
+    
+    assert response.status_code == 200
+    assert data["progress"]["flashcard_progress"]["test_card"]["correct_count"] == 1
 ```
 
 ### API Tests

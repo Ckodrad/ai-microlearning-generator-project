@@ -47,7 +47,7 @@ function App() {
   };
   const [progress, setProgress] = useState(null);
   const textPreview = useRef("");
-  
+
   // Quiz state management
   const [quizAnswers, setQuizAnswers] = useState({});
   const [quizResults, setQuizResults] = useState({});
@@ -582,7 +582,7 @@ function App() {
             <div className="personalization-bar">
               <h3>Your Learning Profile</h3>
               <p>Optimized for {userPreferences.learningStyle} learning • {userPreferences.difficulty} difficulty • {userPreferences.pace} pace</p>
-            </div>
+      </div>
           )}
           
           <div className="hero-cta">
@@ -659,9 +659,9 @@ function App() {
             <h3>Learning Analytics</h3>
             <p>Comprehensive progress tracking with personalized insights and adaptive recommendations for optimal learning</p>
           </div>
-        </div>
       </div>
-    );
+    </div>
+  );
   };
 
   // Alice.tech-inspired Generator Page
@@ -675,7 +675,7 @@ function App() {
       <div className="upload-section">
         <div className="card-header">
           <div className="card-icon">📁</div>
-          <div>
+    <div>
             <div className="card-title">Upload Educational Content</div>
             <div className="card-subtitle">Support for audio, images, and text files</div>
           </div>
@@ -777,11 +777,11 @@ function App() {
             gap: 'var(--space-2)'
           }}>
             ⚠️ {error}
-          </div>
+      </div>
         )}
       </div>
       
-      {renderResults()}
+        {renderResults()}
     </div>
   );
 
@@ -1692,7 +1692,7 @@ function App() {
             <span>MicroLearn AI</span>
           </div>
           
-          <nav className="nav-tabs">
+      <nav className="nav-tabs">
             <button className={tab === 'home' ? 'active' : ''} onClick={() => setTab('home')}>
               <span>🏠</span> Home
             </button>
@@ -1705,7 +1705,7 @@ function App() {
             <button className={tab === 'preferences' ? 'active' : ''} onClick={() => setTab('preferences')}>
               <span>⚙️</span> Settings
             </button>
-          </nav>
+      </nav>
         </div>
       </header>
       

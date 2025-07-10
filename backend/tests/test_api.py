@@ -401,4 +401,282 @@ class TestEndToEndWorkflow:
         
         # Test GET endpoint
         response = client.get(f"/progress/{invalid_session}")
+        assert response.status_code == 404
+
+@pytest.mark.api
+class TestChatEndpoint:
+    """Test AI chat endpoint."""
+    
+    def test_chat_basic_message(self, client):
+        """Test basic chat functionality."""
+        response = client.post("/chat", data={"message": "Hello, can you help me study?"})
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert data["success"] is True
+        assert "response" in data
+        assert isinstance(data["response"], str)
+        assert len(data["response"]) > 0
+
+    def test_chat_with_context(self, client):
+        """Test chat with learning context."""
+        context = json.dumps({
+            "hasQuiz": True,
+            "currentProgress": 85,
+            "summary": "Machine learning is a subset of AI..."
+        })
+        
+        response = client.post("/chat", data={
+            "message": "How did I do on the quiz?",
+            "context": context
+        })
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert data["success"] is True
+        assert "85" in data["response"] or "quiz" in data["response"].lower()
+
+    def test_chat_with_session(self, client, mock_progress_store, sample_progress_data):
+        """Test chat with session tracking."""
+        session_id = "test-session"
+        mock_progress_store[session_id] = sample_progress_data
+        
+        response = client.post("/chat", data={
+            "message": "What should I study next?",
+            "session_id": session_id
+        })
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert data["success"] is True
+        assert "response" in data
+
+    def test_chat_error_handling(self, client):
+        """Test chat error handling."""
+        # Test with malformed context
+        response = client.post("/chat", data={
+            "message": "Test message",
+            "context": "invalid json"
+        })
+        
+        assert response.status_code == 200  # Should still work with invalid context
+        data = response.json()
+        assert data["success"] is True
+
+@pytest.mark.api
+class TestPreferencesEndpoint:
+    """Test user preferences endpoints."""
+    
+    def test_save_preferences(self, client, mock_progress_store):
+        """Test saving user preferences."""
+        session_id = "test-session"
+        preferences = {
+            "name": "Test User",
+            "learningStyle": "visual",
+            "difficulty": "intermediate",
+            "interests": ["science", "technology"]
+        }
+        
+        response = client.post("/preferences", data={
+            "session_id": session_id,
+            "preferences": json.dumps(preferences)
+        })
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert data["success"] is True
+        assert data["message"] == "Preferences saved successfully"
+        
+        # Check that preferences were stored
+        assert session_id in mock_progress_store
+        assert mock_progress_store[session_id]["preferences"] == preferences
+
+    def test_get_preferences_existing(self, client, mock_progress_store):
+        """Test retrieving existing preferences."""
+        session_id = "test-session"
+        preferences = {"name": "Test User", "learningStyle": "auditory"}
+        
+        mock_progress_store[session_id] = {
+            "session_id": session_id,
+            "preferences": preferences
+        }
+        
+        response = client.get(f"/preferences/{session_id}")
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert data["success"] is True
+        assert data["preferences"] == preferences
+
+    def test_get_preferences_nonexistent(self, client):
+        """Test retrieving preferences for non-existent session."""
+        response = client.get("/preferences/nonexistent-session")
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert data["preferences"] is None
+
+    def test_save_preferences_invalid_json(self, client):
+        """Test saving preferences with invalid JSON."""
+        response = client.post("/preferences", data={
+            "session_id": "test-session",
+            "preferences": "invalid json"
+        })
+        
+        assert response.status_code == 500
+
+@pytest.mark.api
+class TestAnalyticsEndpoint:
+    """Test learning analytics endpoint."""
+    
+    def test_get_analytics_with_data(self, client, mock_progress_store):
+        """Test retrieving analytics with existing data."""
+        session_id = "test-session"
+        progress_data = {
+            "session_id": session_id,
+            "completed_modules": 3,
+            "quiz_scores": {"quiz1": 85.0, "quiz2": 92.0},
+            "flashcard_progress": {
+                "card1": {"reviewed_count": 5, "correct_count": 4},
+                "card2": {"reviewed_count": 3, "correct_count": 3}
+            },
+            "time_spent": 7200,  # 2 hours in seconds
+            "streak_days": 5,
+            "learning_objectives_completed": ["obj1", "obj2", "obj3"]
+        }
+        
+        mock_progress_store[session_id] = progress_data
+        
+        response = client.get(f"/analytics/{session_id}")
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert data["success"] is True
+        analytics = data["analytics"]
+        
+        assert analytics["session_id"] == session_id
+        assert analytics["total_modules"] == 3
+        assert analytics["total_quizzes"] == 2
+        assert analytics["average_quiz_score"] == 88.5
+        assert analytics["total_flashcards"] == 2
+        assert analytics["total_study_time"] == 7200
+        assert analytics["learning_streak"] == 5
+        assert analytics["learning_objectives_completed"] == 3
+
+    def test_get_analytics_nonexistent_session(self, client):
+        """Test retrieving analytics for non-existent session."""
+        response = client.get("/analytics/nonexistent-session")
+        
+        assert response.status_code == 404
+
+    def test_analytics_calculations(self, client, mock_progress_store):
+        """Test that analytics calculations are correct."""
+        session_id = "test-session"
+        progress_data = {
+            "session_id": session_id,
+            "quiz_scores": {"quiz1": 100.0, "quiz2": 80.0, "quiz3": 70.0},
+            "flashcard_progress": {
+                "card1": {"reviewed_count": 10, "correct_count": 8},
+                "card2": {"reviewed_count": 5, "correct_count": 4}
+            }
+        }
+        
+        mock_progress_store[session_id] = progress_data
+        
+        response = client.get(f"/analytics/{session_id}")
+        
+        assert response.status_code == 200
+        analytics = response.json()["analytics"]
+        
+        # Check average quiz score calculation
+        expected_avg = (100.0 + 80.0 + 70.0) / 3
+        assert analytics["average_quiz_score"] == round(expected_avg, 1)
+        
+        # Check flashcard accuracy calculation
+        total_correct = 8 + 4
+        total_reviewed = 10 + 5
+        expected_accuracy = (total_correct / total_reviewed) * 100
+        assert analytics["flashcard_accuracy"] == round(expected_accuracy, 1)
+
+@pytest.mark.api
+class TestStudySessionEndpoints:
+    """Test study session tracking endpoints."""
+    
+    def test_start_study_session(self, client, mock_progress_store):
+        """Test starting a new study session."""
+        session_id = "test-session"
+        
+        response = client.post("/study-session", data={
+            "session_id": session_id,
+            "duration": 45
+        })
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert data["success"] is True
+        assert "session" in data
+        assert data["session"]["planned_duration"] == 45
+        assert data["session"]["active"] is True
+        assert "45 minutes" in data["message"]
+        
+        # Check that session was stored
+        assert session_id in mock_progress_store
+        assert len(mock_progress_store[session_id]["study_sessions"]) == 1
+
+    def test_start_study_session_default_duration(self, client, mock_progress_store):
+        """Test starting study session with default duration."""
+        response = client.post("/study-session", data={"session_id": "test-session"})
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert data["session"]["planned_duration"] == 30  # Default duration
+
+    def test_complete_study_session(self, client, mock_progress_store):
+        """Test completing a study session."""
+        session_id = "test-session"
+        
+        # First start a session
+        mock_progress_store[session_id] = {
+            "session_id": session_id,
+            "study_sessions": [{
+                "start_time": "2024-01-01T10:00:00",
+                "planned_duration": 30,
+                "active": True
+            }],
+            "time_spent": 0
+        }
+        
+        response = client.post("/study-session/complete", data={
+            "session_id": session_id,
+            "actual_duration": 35
+        })
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert data["success"] is True
+        assert data["total_study_time"] == 35
+        assert "35 minutes" in data["message"]
+        
+        # Check that session was marked as completed
+        session = mock_progress_store[session_id]["study_sessions"][0]
+        assert session["active"] is False
+        assert session["actual_duration"] == 35
+
+    def test_complete_study_session_invalid_session(self, client):
+        """Test completing session with invalid session ID."""
+        response = client.post("/study-session/complete", data={
+            "session_id": "invalid-session",
+            "actual_duration": 30
+        })
+        
         assert response.status_code == 404 
