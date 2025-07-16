@@ -170,12 +170,4 @@ npm run dev
 - **Secure API Communication**: HTTPS and CORS protection
 - **Optional API Keys**: Mock data available without external APIs
 
-
-## 🙋‍♂️ Support
-
-For questions, issues, or feedback:
-- Open a GitHub issue
-- Contact the development team
-- Check the documentation
-
 ---
