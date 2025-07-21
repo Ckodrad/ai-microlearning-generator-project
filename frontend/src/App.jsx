@@ -1,7 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import './App.css';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import Auth from './components/Auth';
 
-function App() {
+const MainApp = () => {
   const [tab, setTab] = useState('home');
   const [files, setFiles] = useState({});
   const [prompt, setPrompt] = useState('');
@@ -12,41 +14,12 @@ function App() {
   const [dragActive, setDragActive] = useState({});
   const [currentFlashcard, setCurrentFlashcard] = useState(0);
   const [showFlashcardAnswer, setShowFlashcardAnswer] = useState(false);
-  
-  // Flashcard review handler with backend tracking
-  const handleFlashcardReview = async (correct) => {
-    if (!data?.flashcards || !progress?.session_id) return;
-    
-    try {
-      const form = new FormData();
-      form.append('session_id', progress.session_id);
-      form.append('card_id', `flashcard_${currentFlashcard}`);
-      form.append('correct', correct);
-      
-      const response = await fetch('http://localhost:8000/flashcard-review', {
-        method: 'POST',
-        body: form,
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        setProgress(result.progress);
-        loadAnalytics(); // Refresh analytics
-      }
-    } catch (error) {
-      console.error('Failed to track flashcard review:', error);
-    }
-    
-    // Move to next flashcard
-    if (currentFlashcard < data.flashcards.length - 1) {
-      setCurrentFlashcard(currentFlashcard + 1);
-    } else {
-      setCurrentFlashcard(0);
-    }
-    setShowFlashcardAnswer(false);
-  };
   const [progress, setProgress] = useState(null);
+  const [sessionId, setSessionId] = useState(null);
   const textPreview = useRef("");
+  
+  // Get authentication context
+  const { currentUser, userData, logout } = useAuth();
   
   // Quiz state management
   const [quizAnswers, setQuizAnswers] = useState({});
@@ -94,26 +67,8 @@ function App() {
     }
   });
 
-  // Load preferences from localStorage on component mount
-  React.useEffect(() => {
-    const savedPreferences = localStorage.getItem('userPreferences');
-    if (savedPreferences) {
-      try {
-        const loaded = JSON.parse(savedPreferences);
-        setUserPreferences(prev => ({
-          ...prev,
-          ...loaded,
-          studyGoals: Array.isArray(loaded.studyGoals) ? loaded.studyGoals : [],
-          // Add similar lines for other array fields if needed
-        }));
-      } catch (error) {
-        console.error('Failed to load preferences:', error);
-      }
-    }
-  }, []);
-
   // Enhanced analytics with backend integration
-  const [analytics, setAnalytics] = React.useState({
+  const [analytics, setAnalytics] = useState({
     totalQuestions: 0,
     flashcards: 0,
     concepts: 0,
@@ -123,12 +78,7 @@ function App() {
     averageScore: 0
   });
 
-  const getAnalytics = () => {
-    // Return current analytics state (updated from backend or local calculation)
-    return analytics;
-  };
-
-  const loadAnalytics = async () => {
+  const loadAnalytics = useCallback(async () => {
     try {
       if (progress?.session_id) {
         const response = await fetch(`http://localhost:8000/analytics/${progress.session_id}`);
@@ -169,12 +119,89 @@ function App() {
     } catch (error) {
       console.error('Failed to load analytics:', error);
     }
-  };
+  }, [progress?.session_id, data, quizCompleted, quizScore]);
+
+  const completeModule = useCallback(async (moduleId) => {
+    if (!progress?.session_id) return;
+    
+    try {
+      const form = new FormData();
+      form.append('session_id', progress.session_id);
+      form.append('module_id', moduleId);
+      
+      const response = await fetch('http://localhost:8000/complete-module', {
+        method: 'POST',
+        body: form,
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        setProgress(result.progress);
+        loadAnalytics(); // Refresh analytics
+      }
+    } catch (error) {
+      console.error('Failed to complete module:', error);
+    }
+  }, [progress?.session_id, loadAnalytics]);
+
+  // Load preferences from localStorage on component mount
+  useEffect(() => {
+    const savedPreferences = localStorage.getItem('userPreferences');
+    if (savedPreferences) {
+      try {
+        const loaded = JSON.parse(savedPreferences);
+        setUserPreferences(prev => ({
+          ...prev,
+          ...loaded,
+          studyGoals: Array.isArray(loaded.studyGoals) ? loaded.studyGoals : [],
+        }));
+      } catch (error) {
+        console.error('Failed to load preferences:', error);
+      }
+    }
+  }, []);
 
   // Load analytics when progress changes
-  React.useEffect(() => {
+  useEffect(() => {
     loadAnalytics();
-  }, [progress?.session_id, data, quizCompleted, quizScore]);
+  }, [loadAnalytics]);
+
+  // Flashcard review handler with backend tracking
+  const handleFlashcardReview = async (correct) => {
+    if (!data?.flashcards || !progress?.session_id) return;
+    
+    try {
+      const form = new FormData();
+      form.append('session_id', progress.session_id);
+      form.append('card_id', `flashcard_${currentFlashcard}`);
+      form.append('correct', correct);
+      
+      const response = await fetch('http://localhost:8000/flashcard-review', {
+        method: 'POST',
+        body: form,
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        setProgress(result.progress);
+        loadAnalytics(); // Refresh analytics
+      }
+    } catch (error) {
+      console.error('Failed to track flashcard review:', error);
+    }
+    
+    // Move to next flashcard
+    if (currentFlashcard < data.flashcards.length - 1) {
+      setCurrentFlashcard(currentFlashcard + 1);
+    } else {
+      setCurrentFlashcard(0);
+    }
+    setShowFlashcardAnswer(false);
+  };
+
+  const getAnalytics = () => {
+    return analytics;
+  };
 
   // All existing handlers remain the same
   const handleDrag = (e, type) => {
@@ -236,7 +263,9 @@ function App() {
       setData(json);
       if (json.progress) {
         setProgress(json.progress);
+        setSessionId(json.progress.session_id);
       }
+      setTab('generator');
     } catch (e) {
       setError('Error: ' + e.message);
     } finally {
@@ -319,11 +348,11 @@ function App() {
   };
 
   const resetQuiz = () => {
+    setCurrentQuestion(1);
     setQuizAnswers({});
     setQuizResults({});
     setQuizCompleted(false);
     setQuizScore(0);
-    setCurrentQuestion(1);
   };
 
   const sendChatMessage = async () => {
@@ -1668,31 +1697,75 @@ function App() {
 
   return (
     <div className="app-container">
-      {/* Alice.tech-style Header */}
+      {/* Header */}
       <header className="app-header">
         <div className="header-content">
-          <div className="logo">
-            <span className="logo-icon">🎓</span>
-            <span>MicroLearn AI</span>
+          {/* Logo and Logout on Left */}
+          <div className="header-left">
+            <div className="logo">
+              <span className="logo-icon">🧠</span>
+              <span>MicroLearn AI</span>
+            </div>
+            <button onClick={logout} className="logout-btn">
+              Logout
+            </button>
           </div>
-          
+
+          {/* Navigation in Center */}
           <nav className="nav-tabs">
-            <button className={tab === 'home' ? 'active' : ''} onClick={() => setTab('home')}>
-              <span>🏠</span> Home
-            </button>
-            <button className={tab === 'generator' ? 'active' : ''} onClick={() => setTab('generator')}>
-              <span>🎯</span> Create
-            </button>
-            <button className={tab === 'chat' ? 'active' : ''} onClick={() => setTab('chat')}>
-              <span>💬</span> Assistant
-            </button>
-            <button className={tab === 'preferences' ? 'active' : ''} onClick={() => setTab('preferences')}>
-              <span>⚙️</span> Settings
-            </button>
+            <div className="nav-left">
+              <button
+                className={tab === 'home' ? 'active' : ''}
+                onClick={() => setTab('home')}
+              >
+                Home
+              </button>
+              <button
+                className={tab === 'generator' ? 'active' : ''}
+                onClick={() => setTab('generator')}
+              >
+                Create
+              </button>
+              <button
+                className={tab === 'chat' ? 'active' : ''}
+                onClick={() => setTab('chat')}
+              >
+                Assistant
+              </button>
+              <button
+                className={tab === 'preferences' ? 'active' : ''}
+                onClick={() => setTab('preferences')}
+              >
+                Settings
+              </button>
+            </div>
           </nav>
+
+          {/* User Profile on Right */}
+          <div className="user-profile-bar">
+            {currentUser && (
+              <div className="user-info">
+                <div className="user-avatar">
+                  {currentUser.photoURL ? (
+                    <img src={currentUser.photoURL} alt="Profile" />
+                  ) : (
+                    currentUser.displayName?.[0] || currentUser.email?.[0] || 'U'
+                  )}
+                </div>
+                <div className="user-details">
+                  <div className="user-name">
+                    {currentUser.displayName || 'User'}
+                  </div>
+                  <div className="user-email">
+                    {currentUser.email}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
-      
+
       {/* Main Content */}
       {tab === 'home' && renderHome()}
       {tab === 'generator' && renderGenerator()}
@@ -1700,6 +1773,24 @@ function App() {
       {tab === 'preferences' && renderPreferencesPanel()}
     </div>
   );
+};
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
 }
+
+const AppContent = () => {
+  const { currentUser } = useAuth();
+  
+  if (!currentUser) {
+    return <Auth />;
+  }
+
+  return <MainApp />;
+};
 
 export default App;
