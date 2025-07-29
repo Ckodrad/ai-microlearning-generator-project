@@ -1041,9 +1041,9 @@ body {
 .progress-bar-enhanced::before {
   content: '';
   position: absolute;
-  top: 24px; /* Exactly center of 48px circles */
+  top: 38px; /* Exactly center of 48px circles */
   left: 0;
-  right: 0;
+  right: 24px; /* Reduce width from right side by 24px */
   height: 4px;
   background: var(--border);
   border-radius: 2px;
@@ -1054,7 +1054,7 @@ body {
 .progress-bar-enhanced::after {
   content: '';
   position: absolute;
-  top: 24px; /* Exactly center of 48px circles */
+  top: 38px; /* Aligned with the horizontal line position */
   left: 0;
   height: 4px;
   background: linear-gradient(90deg, var(--accent) 0%, var(--accent-light) 100%);
@@ -1063,14 +1063,15 @@ body {
   box-shadow: 0 1px 3px rgba(16, 185, 129, 0.3);
   transition: width 0.6s ease-in-out;
   width: 0%;
+  right: 24px; /* Match the background line width */
 }
 
 .progress-bar-enhanced.progress-1::after {
-  width: 33.33%;
+  width: 50%;
 }
 
 .progress-bar-enhanced.progress-2::after {
-  width: 66.66%;
+  width: 100%;
 }
 
 .progress-bar-enhanced.progress-3::after {
