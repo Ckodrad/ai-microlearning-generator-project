@@ -1035,12 +1035,13 @@ body {
   margin-bottom: var(--space-6);
   position: relative;
   padding: var(--space-4) 0;
+  align-items: center;
 }
 
 .progress-bar-enhanced::before {
   content: '';
   position: absolute;
-  top: 50%;
+  top: 24px; /* Exactly center of 48px circles */
   left: 0;
   right: 0;
   height: 4px;
@@ -1048,20 +1049,18 @@ body {
   border-radius: 2px;
   z-index: 1;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transform: translateY(-50%);
 }
 
 .progress-bar-enhanced::after {
   content: '';
   position: absolute;
-  top: 50%;
+  top: 24px; /* Exactly center of 48px circles */
   left: 0;
   height: 4px;
   background: linear-gradient(90deg, var(--accent) 0%, var(--accent-light) 100%);
   border-radius: 2px;
   z-index: 2;
   box-shadow: 0 1px 3px rgba(16, 185, 129, 0.3);
-  transform: translateY(-50%);
   transition: width 0.6s ease-in-out;
   width: 0%;
 }
