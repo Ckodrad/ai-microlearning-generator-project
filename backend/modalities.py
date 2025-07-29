@@ -34,7 +34,7 @@ from PIL import Image
 from transformers import BlipProcessor, BlipForConditionalGeneration
 
 # 3) GPT-based generation (OpenAI API)
-import openai
+# Note: OpenAI client is imported in the function to use new API format
 
 # Ensure PyTorch is available for transformers models
 try:
@@ -52,8 +52,6 @@ if not OPENAI_API_KEY:
     print("   Set your OpenAI API key: export OPENAI_API_KEY='your-api-key-here'")
     print("   Or get one from: https://platform.openai.com/account/api-keys")
     OPENAI_API_KEY = "sk-demo-key-not-set"  # Fallback for demo
-
-openai.api_key = OPENAI_API_KEY
 
 # Choose Whisper and BLIP model sizes as needed
 WHISPER_MODEL = "base"
@@ -220,7 +218,9 @@ def generate_enhanced_content(text: str) -> Dict[str, Any]:
     user_prompt = f"Here is the educational content:\n\"\"\"\n{text}\n\"\"\"\n"
 
     try:
-        response = openai.chat.completions.create(
+        from openai import OpenAI
+        client = OpenAI(api_key=OPENAI_API_KEY)
+        response = client.chat.completions.create(
             model=GPT_MODEL,
             messages=[
                 {"role": "system", "content": system_prompt},
