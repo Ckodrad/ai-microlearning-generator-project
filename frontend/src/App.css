@@ -1044,15 +1044,49 @@ body {
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, var(--accent) 0%, var(--accent) 33%, var(--border) 33%, var(--border) 100%);
+  background: var(--border);
   border-radius: 2px;
   z-index: 1;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transform: translateY(-50%);
 }
 
+.progress-bar-enhanced::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-light) 100%);
+  border-radius: 2px;
+  z-index: 2;
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.3);
+  transform: translateY(-50%);
+  transition: width 0.6s ease-in-out;
+  width: 0%;
+}
+
+.progress-bar-enhanced.progress-1::after {
+  width: 33.33%;
+}
+
+.progress-bar-enhanced.progress-2::after {
+  width: 66.66%;
+}
+
+.progress-bar-enhanced.progress-3::after {
+  width: 100%;
+}
+
+/* Add a subtle glow effect to the progress fill */
+.progress-bar-enhanced::after {
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.3), 0 0 8px rgba(16, 185, 129, 0.1);
+}
+
+/* Ensure the progress line is properly centered */
 .progress-step-enhanced {
   position: relative;
-  z-index: 2;
+  z-index: 3;
   display: flex;
   flex-direction: column;
   align-items: center;

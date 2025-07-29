@@ -1366,7 +1366,7 @@ const MainApp = () => {
             {!quizCompleted ? (
               <>
                 <div className="quiz-progress-enhanced">
-                  <div className="progress-bar-enhanced">
+                  <div className={`progress-bar-enhanced progress-${currentQuestion - 1}`}>
                     {[1, 2, 3].map((num) => (
                       <div 
                         key={num} 
