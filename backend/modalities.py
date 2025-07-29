@@ -193,7 +193,13 @@ def generate_enhanced_content(text: str) -> Dict[str, Any]:
           "question": "question text",
           "answer": "correct answer",
           "bloom_level": "Remember|Understand|Apply",
-          "explanation": "brief explanation of why this answer is correct"
+          "explanation": "brief explanation of why this answer is correct",
+          "options": [
+            "correct answer",
+            "plausible but incorrect option 1",
+            "plausible but incorrect option 2", 
+            "plausible but incorrect option 3"
+          ]
         }
       ],
       "flashcards": [
@@ -206,6 +212,12 @@ def generate_enhanced_content(text: str) -> Dict[str, Any]:
       "key_concepts": ["list of 5-7 key concepts from the content"],
       "difficulty_level": "beginner|intermediate|advanced"
     }
+    
+    IMPORTANT: For each question, provide 4 multiple choice options where:
+    - The first option is the correct answer
+    - The other 3 options are plausible but incorrect distractors
+    - All options should be similar in length and style
+    - Avoid obvious wrong answers or placeholder text
     
     Ensure questions follow Bloom's Taxonomy:
     - Remember: Recall facts, terms, basic concepts
